@@ -1,0 +1,15 @@
+[package]
+name = "kperf-sys"
+version = "0.0.1"
+edition = "2021"
+license = "MPL-2.0"
+description = "Rust basic bindings to the kperf and kperfdata Frameworks"
+repository = "https://github.com/El-Naizin/kperf-rs"
+readme = "README.md"
+keywords = ["ffi", "perf", "kperf", "kperfdata"]
+categories = ["os::macos-apis", "external-ffi-bindings"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libc = "0.2.150"

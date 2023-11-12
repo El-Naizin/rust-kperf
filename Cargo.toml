@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "kperf-rs",
+    "kperf-sys"
+]
+
+
+[profile.release]
+debug = true
