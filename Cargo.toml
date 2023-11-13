@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "kperf-rs",
-    "kperf-sys"
+    "kperf-sys",
+    "kperf-tests",
 ]
 
 
