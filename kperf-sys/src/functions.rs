@@ -46,7 +46,7 @@ extern "C" {
     /// @param db A kpep db, see kpep_db_create()
     /// @param cfg_ptr A pointer to receive the new config.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_config_create (db: *mut kpep_db, cfg_ptr: *mut kpep_config) -> c_int;
+    pub fn kpep_config_create (db: *mut kpep_db, cfg_ptr: *mut *mut kpep_config) -> c_int;
 
     /// Free the config.
     pub fn kpep_config_free (cfg: *mut kpep_config);
