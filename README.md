@@ -1,13 +1,21 @@
-# rust-workspace ![](https://github.com/nirmangupta/rust-workspace/workflows/Rust/badge.svg)
-This repository contains template code for a new rust project.
+# rust-kperf
 
-### Usage
-* To use this repository, clone it as a template.  
-* Add a new binary or library either using `cargo new` or by manually creating a folder.  
-* Add the name of the package to workspace's `Cargo.toml` under `workspace.members`.  
-More details about cargo workspace at https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html
+Native rust bindings to the private macOS frameworks: kperf and kperfdata.
+The library binds to the frameworks with the libc library.
+This framework allows access to the PMU, and it's usage requires the process
+to be run with super-user privileges.
 
-### Notes
-* Important to replace the `LICENSE` as per project requirement.
-* Edit the `README` to show case project usage and features.
-* Basic CI pipeline using github actions can be found under `/github/rust.yml`.
+If when building or running this code on a Mac, you have a linker error, it means either
+the kperf or kperfdata private frameworks changed, or some functions were not well tested.
+
+I could only test the code on an Apple M2 2022 macbook air, on macOS Ventura 13.5.2
+
+Issues are welcome.
+
+Still a WIP.
+
+## Credit
+
+The rust code was written from the reverse-engineering efforts of two posts I saw online:
+- https://lemire.me/blog/2023/03/21/counting-cycles-and-instructions-on-arm-based-apple-systems/
+- https://twitter.com/ibireme/status/1476802948160442368
