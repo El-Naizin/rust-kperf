@@ -1,10 +1,10 @@
 use std::ffi::{CStr, CString};
 use std::mem::size_of;
 use std::ptr::{null, null_mut};
-use libc::{c_char, c_int, size_t};
+use libc::{c_char, c_int, c_uint, c_ulonglong, size_t};
 use kperf_sys;
-use kperf_sys::constants::KPC_CLASS_CONFIGURABLE;
-use kperf_sys::functions::{kpc_force_all_ctrs_get, kpc_force_all_ctrs_set, kpc_set_config, kpc_set_counting, kpc_set_thread_counting, kpep_config_add_event, kpep_config_create, kpep_config_force_counters, kpep_config_kpc, kpep_config_kpc_classes, kpep_config_kpc_count, kpep_config_kpc_map, kpep_db_event};
+use kperf_sys::constants::{KPC_CLASS_CONFIGURABLE, KPC_CLASS_CONFIGURABLE_MASK};
+use kperf_sys::functions::{kpc_force_all_ctrs_get, kpc_force_all_ctrs_set, kpc_get_thread_counters, kpc_set_config, kpc_set_counting, kpc_set_thread_counting, kpep_config_add_event, kpep_config_create, kpep_config_force_counters, kpep_config_kpc, kpep_config_kpc_classes, kpep_config_kpc_count, kpep_config_kpc_map, kpep_db_event};
 use kperf_sys::structs::{kpc_config_t, kpep_db, kpep_event};
 
 const KPC_MAX_COUNTERS: size_t = 32;
@@ -50,7 +50,6 @@ pub fn get_event_names(event_type: Event) -> Vec<CString> {
     }
 }
 
-
 pub fn get_event(event_type: Event, db: &mut kpep_db) -> Option<*mut kpep_event>{
     let names = get_event_names(event_type);
     for name in names {
@@ -63,6 +62,8 @@ pub fn get_event(event_type: Event, db: &mut kpep_db) -> Option<*mut kpep_event>
     }
     return None;
 }
+
+
 
 fn main() {
     let mut force_ctrs: c_int = 0;
@@ -143,7 +144,7 @@ fn main() {
             )
         }
         println!(
-            "{:?}",
+            "Counter map: {:?}",
             counter_map,
         );
 
@@ -156,8 +157,8 @@ fn main() {
             );
         }
 
-        kpc_force_all_ctrs_set(1);
-        if (classes & KPC_CLASS_CONFIGURABLE) != 0 && reg_count != 0 {
+        kpc_force_all_ctrs_set(1); // Set config to kernel
+        if (classes & KPC_CLASS_CONFIGURABLE_MASK) != 0 && reg_count != 0 {
             let res = kpc_set_config(classes, regs.as_mut_ptr());
             if res != 0 {
                 println!(
@@ -186,8 +187,40 @@ fn main() {
                 res
             )
         }
+        println!("Should have worked");
 
-        let res =
+        // Get counters
+        let mut counters_0_start = [0 as c_ulonglong; KPC_MAX_COUNTERS];
+        let res = kpc_get_thread_counters(0, KPC_MAX_COUNTERS as c_uint, counters_0_start.as_mut_ptr());
+        if res != 0 {
+            println!(
+                "Failed to get thread counters : {}",
+                res
+            );
+        }
+
+        // Get counters
+        let mut counters_0_end = [0 as c_ulonglong; KPC_MAX_COUNTERS];
+        let res = kpc_get_thread_counters(0, KPC_MAX_COUNTERS as c_uint, counters_0_end.as_mut_ptr());
+        if res != 0 {
+            println!(
+                "Failed to get thread counters : {}",
+                res
+            );
+        }
+        println!("Got counters start and end");
+
+        let mut counters_0_diff = counters_0_end;
+        println!("Initialized counters_0_diff");
+        println!("diff: {:?}\nstart: {:?}\nend: {:?}", counters_0_diff, counters_0_start, counters_0_end);
+
+        counters_0_diff[counter_map[0]] -= counters_0_start[counter_map[0]];
+
+        println!("Cycles: {:?}", counters_0_diff[counter_map[0]]);
+        println!("Branches: {:?}", counters_0_diff[counter_map[3]]); // Not working yet
+        println!("Missed Branches: {:?}", counters_0_diff[counter_map[2]]); // Not working yet
+        println!("Instructions: {:?}", counters_0_diff[counter_map[1]]); // Not working yet
+
     }
     println!("Hello, world!");
 }
