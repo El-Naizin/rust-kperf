@@ -1,7 +1,7 @@
-use libc::{c_int, size_t, c_uint, c_ulonglong, c_char, c_uchar};
-use crate::structs::{kpep_db, kpep_config, kpep_event, kpc_config_t};
+use crate::structs::{kpc_config_t, kpep_config, kpep_db, kpep_event};
+use libc::{c_char, c_int, c_uchar, c_uint, c_ulonglong, size_t};
 
-#[link(name="kperf", kind="framework")]
+#[link(name = "kperf", kind = "framework")]
 extern "C" {
     /// Print current CPU identification string to the buffer (same as snprintf),
     /// such as "cpu_7_8_10b282dc_46". This string can be used to locate the PMC
@@ -75,7 +75,12 @@ extern "C" {
     /// @param buf Buffer to receive counter's value.
     /// @return 0 for success.
     /// @details sysctl get(hw.ncpu), get(kpc.counter_count), get(kpc.counters)
-    pub fn kpc_get_cpu_counters(all_cpus: bool, classes: c_uint, curcpu: *mut c_int, buf: *mut c_ulonglong) -> c_int;
+    pub fn kpc_get_cpu_counters(
+        all_cpus: bool,
+        classes: c_uint,
+        curcpu: *mut c_int,
+        buf: *mut c_ulonglong,
+    ) -> c_int;
     /// Get counter accumulations for current thread.
     /// @param tid Thread id, should be 0.
     /// @param buf_count The number of buf's elements (not bytes),
@@ -165,17 +170,16 @@ extern "C" {
 // return sysctlbyname("kperf.lightweight_pet", NULL, NULL, &enabled, 4);
 // }
 
-
-#[link(name="kperfdata", kind="framework")]
+#[link(name = "kperfdata", kind = "framework")]
 extern "C" {
     /// Create a config.
     /// @param db A kpep db, see kpep_db_create()
     /// @param cfg_ptr A pointer to receive the new config.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_config_create (db: *mut kpep_db, cfg_ptr: *mut *mut kpep_config) -> c_int;
+    pub fn kpep_config_create(db: *mut kpep_db, cfg_ptr: *mut *mut kpep_config) -> c_int;
 
     /// Free the config.
-    pub fn kpep_config_free (cfg: *mut kpep_config);
+    pub fn kpep_config_free(cfg: *mut kpep_config);
 
     /// Add an event to config.
     /// @param cfg The config.
@@ -185,103 +189,120 @@ extern "C" {
     ///            If return value is `CONFLICTING_EVENTS`, this bitmap contains
     ///            the conflicted event indices, e.g. "1 << 2" means index 2.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_config_add_event (cfg: *mut kpep_config, ev_ptr: *mut *mut kpep_event, flag: c_uint, err: *mut c_uint) -> c_int;
+    pub fn kpep_config_add_event(
+        cfg: *mut kpep_config,
+        ev_ptr: *mut *mut kpep_event,
+        flag: c_uint,
+        err: *mut c_uint,
+    ) -> c_int;
 
     /// Remove event at index.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_config_remove_event (cfg: *mut kpep_config, idx: size_t) -> c_int;
+    pub fn kpep_config_remove_event(cfg: *mut kpep_config, idx: size_t) -> c_int;
 
     /// Force all counters.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_config_force_counters (cfg: *mut kpep_config) -> c_int;
+    pub fn kpep_config_force_counters(cfg: *mut kpep_config) -> c_int;
 
     /// Get events count.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_config_events_count (cfg: *mut kpep_config, count_ptr: *mut size_t) -> c_int;
+    pub fn kpep_config_events_count(cfg: *mut kpep_config, count_ptr: *mut size_t) -> c_int;
 
     /// Get all event pointers.
     /// @param buf A buffer to receive event pointers.
     /// @param buf_size The buffer's size in bytes, should not smaller than
     ///                 kpep_config_events_count() * sizeof(void *).
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_config_events (cfg: *mut kpep_config, buf: *mut *mut kpep_event, buf_size: size_t) -> c_int;
+    pub fn kpep_config_events(
+        cfg: *mut kpep_config,
+        buf: *mut *mut kpep_event,
+        buf_size: size_t,
+    ) -> c_int;
 
     /// Get kpc register configs.
     /// @param buf A buffer to receive kpc register configs.
     /// @param buf_size The buffer's size in bytes, should not smaller than
     ///                 kpep_config_kpc_count() * sizeof(kpc_config_t).
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_config_kpc (cfg: *mut kpep_config, buf: *mut kpc_config_t, buf_size: size_t) -> c_int;
+    pub fn kpep_config_kpc(
+        cfg: *mut kpep_config,
+        buf: *mut kpc_config_t,
+        buf_size: size_t,
+    ) -> c_int;
 
     /// Get kpc register config count.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_config_kpc_count (cfg: *mut kpep_config, count_ptr: *mut size_t) -> c_int;
+    pub fn kpep_config_kpc_count(cfg: *mut kpep_config, count_ptr: *mut size_t) -> c_int;
 
     /// Get kpc classes.
     /// @param classes See `class mask constants` above.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_config_kpc_classes (cfg: *mut kpep_config, classes_ptr: *mut c_uint) -> c_int;
+    pub fn kpep_config_kpc_classes(cfg: *mut kpep_config, classes_ptr: *mut c_uint) -> c_int;
 
     /// Get the index mapping from event to counter.
     /// @param buf A buffer to receive indexes.
     /// @param buf_size The buffer's size in bytes, should not smaller than
     ///                 kpep_config_events_count() * sizeof(kpc_config_t).
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_config_kpc_map (cfg: *mut kpep_config, buf: *mut size_t, buf_size: size_t) -> c_int;
+    pub fn kpep_config_kpc_map(cfg: *mut kpep_config, buf: *mut size_t, buf_size: size_t) -> c_int;
 
     /// Open a kpep database file in "/usr/share/kpep/" or "/usr/local/share/kpep/".
     /// @param name File name, for example "haswell", "cpu_100000c_1_92fb37c8".
     ///             Pass NULL for current CPU.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_db_create (name: *const c_char, db_ptr: *mut *mut kpep_db) -> c_int;
+    pub fn kpep_db_create(name: *const c_char, db_ptr: *mut *mut kpep_db) -> c_int;
 
     /// Free the kpep database.
-    pub fn kpep_db_free (db: *mut kpep_db);
+    pub fn kpep_db_free(db: *mut kpep_db);
 
     /// Get the database's name.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_db_name (db: *mut kpep_db, name: *const *mut c_char) -> c_int;
+    pub fn kpep_db_name(db: *mut kpep_db, name: *const *mut c_char) -> c_int;
 
     /// Get the event alias count.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_db_aliases_count (db: *mut kpep_db, count: *mut size_t) -> c_int;
+    pub fn kpep_db_aliases_count(db: *mut kpep_db, count: *mut size_t) -> c_int;
 
     /// Get all alias.
     /// @param buf A buffer to receive all alias strings.
     /// @param buf_size The buffer's size in bytes,
     ///        should not smaller than kpep_db_aliases_count() * sizeof(void *).
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_db_aliases (db: *mut kpep_db, buf: *const *mut c_char, buf_size: size_t) -> c_int;
+    pub fn kpep_db_aliases(db: *mut kpep_db, buf: *const *mut c_char, buf_size: size_t) -> c_int;
 
     /// Get counters count for given classes.
     /// @param classes 1: Fixed, 2: Configurable.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_db_counters_count (db: *mut kpep_db, classes: c_uchar, count: *mut size_t) -> c_int;
+    pub fn kpep_db_counters_count(db: *mut kpep_db, classes: c_uchar, count: *mut size_t) -> c_int;
 
     /// Get all event count.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_db_events_count (db: *mut kpep_db, count: *mut size_t) -> c_int;
+    pub fn kpep_db_events_count(db: *mut kpep_db, count: *mut size_t) -> c_int;
 
     /// Get all events.
     /// @param buf A buffer to receive all event pointers.
     /// @param buf_size The buffer's size in bytes,
     ///        should not smaller than kpep_db_events_count() * sizeof(void *).
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_db_events (db: *mut kpep_db, buf: *mut *mut kpep_event, buf_size: size_t) -> c_int;
+    pub fn kpep_db_events(db: *mut kpep_db, buf: *mut *mut kpep_event, buf_size: size_t) -> c_int;
 
     /// Get one event by name.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_db_event (db: *mut kpep_db, name: *const c_char, ev_ptr: *mut *mut kpep_event) -> c_int;
+    pub fn kpep_db_event(
+        db: *mut kpep_db,
+        name: *const c_char,
+        ev_ptr: *mut *mut kpep_event,
+    ) -> c_int;
 
     /// Get event's name.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_event_name (ev: *mut kpep_event, name_ptr: *const *mut c_char) -> c_int;
+    pub fn kpep_event_name(ev: *mut kpep_event, name_ptr: *const *mut c_char) -> c_int;
 
     /// Get event's alias.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_event_alias (ev: *mut kpep_event, alias_ptr: *const *mut c_char) -> c_int;
+    pub fn kpep_event_alias(ev: *mut kpep_event, alias_ptr: *const *mut c_char) -> c_int;
 
     /// Get event's description.
     /// @return kpep_config_error_code, 0 for success.
-    pub fn kpep_event_description (ev: *mut kpep_event, str_ptr: *const *mut c_char) -> c_int;
+    pub fn kpep_event_description(ev: *mut kpep_event, str_ptr: *const *mut c_char) -> c_int;
 }

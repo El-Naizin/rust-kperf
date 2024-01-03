@@ -1,28 +1,25 @@
-pub mod structs;
-pub mod functions;
 pub mod constants;
-
+pub mod functions;
+pub mod structs;
 
 #[cfg(test)]
 mod tests {
-    use crate::{structs::*, constants::*, functions::* };
+    use crate::{constants::*, functions::*, structs::*};
     use std::ptr::{null, null_mut};
     const LIBRARY_PATH: &str = "/System/Library/PrivateFrameworks/kperf.framework/kperf";
 
-
     #[test]
     fn test_running_function() {
-        let pmu_version = unsafe {
-            kpc_pmu_version()
-        };
+        let pmu_version = unsafe { kpc_pmu_version() };
     }
 
     #[test]
     fn test_pmu_version() {
-        let pmu_version = unsafe {
-            kpc_pmu_version()
-        };
-        assert_ne!(pmu_version, 0, "A PMU version of zero means an error, try to run this program in sudo");
+        let pmu_version = unsafe { kpc_pmu_version() };
+        assert_ne!(
+            pmu_version, 0,
+            "A PMU version of zero means an error, try to run this program in sudo"
+        );
     }
 
     #[test]
