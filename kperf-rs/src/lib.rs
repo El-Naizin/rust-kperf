@@ -1,158 +1,160 @@
+pub mod error;
+pub mod event;
+pub mod kperf;
+pub mod safe_wrappers;
+
+use error::KperfError;
+use event::Event;
+use kperf::KProbesConfig;
+use kperf::KProbesDatabase;
 pub use kperf_sys;
-use libc::c_int;
+use kperf_sys::constants::KPC_CLASS_CONFIGURABLE_MASK;
+use kperf_sys::functions::{kpc_force_all_ctrs_set, kpc_get_thread_counters, kpc_set_config, kpc_set_counting, kpc_set_thread_counting, kpep_config_add_event, kpep_config_force_counters, kpep_config_kpc, kpep_config_kpc_classes, kpep_config_kpc_count, kpep_config_kpc_map};
+use kperf_sys::structs::kpc_config_t;
+use libc::{c_uint, c_ulonglong, size_t};
 use std::error::Error;
-use std::ffi::CString;
-use std::io::ErrorKind::PermissionDenied;
-use std::ptr::{null, null_mut};
-use kperf_sys::functions::{kpep_config_create, kpep_db_event};
-use kperf_sys::structs::{kpep_config, kpep_db, kpep_event};
+use std::mem::size_of;
+use std::ptr::null_mut;
 
-#[derive(Debug, Copy, Clone)]
-pub enum KpepError {
-    UnknownError
-}
-
-#[derive(Debug)]
-pub struct KProbesConfig {
-    pub config: *mut kpep_config,
-}
-
-impl KProbesConfig {
-    pub fn from_database(database: &mut KProbesDatabase) -> Result<Self, KpepError> {
-        let mut config = null_mut();
-        unsafe {
-            let res = kpep_config_create(database.database, &mut config);
-            if res != 0 {
-                // println!(
-                //     "Failed to create kpep config, error: {}",
-                //     res
-                // );
-                return Err(KpepError::UnknownError)
-            }
-        }
-
-        return Ok(Self {
-            config
-        })
-    }
-}
-
-#[derive(Debug)]
-pub struct KProbesDatabase {
-    pub database: *mut kpep_db,
-}
-
-impl KProbesDatabase {
-    pub fn load_database() -> Result<Self, KpepError> {
-        let mut db: *mut kpep_db = null_mut();
-        unsafe {
-            let mut ret = kperf_sys::functions::kpep_db_create(
-                null(),
-                &mut db,
-            );
-            if ret != 0 {
-                return Err(KpepError::UnknownError)
-            }
-        }
-
-        Ok(Self {
-            database: db
-        })
-    }
+pub enum Track {
+    Thread,
 }
 
 pub struct PerfCounterBuilder {
+    kprobes_config: KProbesConfig, // TODO: this var should be created on build_counter!
+    kprobes_db: KProbesDatabase,   // TODO: this var should be created on build_counter!
+    tracked_event: Event,          // TODO: Make this an option
 }
 
 impl PerfCounterBuilder {
-    fn build_counter() {
+    pub fn new() -> Self {
+        let mut kprobes_db =
+            KProbesDatabase::load_database().expect("Couldn't load kprobes database");
+        let kprobes_config =
+            KProbesConfig::from_database(&mut kprobes_db).expect("Couldn't create kpc config");
+        Self {
+            kprobes_db,
+            kprobes_config,
+            tracked_event: Event::Cycles,
+        }
+    }
+
+    pub fn build_counter(mut self) -> Result<PerfCounter, KperfError> {
+        // let mut classes = 0;
+        // let mut reg_count = 0;
+        // let mut counter_map: [size_t; KPC_MAX_COUNTERS] = [0; KPC_MAX_COUNTERS];
+        // let mut kpc_registers: [kpc_config_t; KPC_MAX_COUNTERS] = [0; KPC_MAX_COUNTERS];
+        unsafe {
+            self.kprobes_config.force_counters()?;
+
+            match self.tracked_event {
+                Event::Cycles => {
+                    self.kprobes_config.add_event(&self.kprobes_db, Event::Cycles)?;
+                    self.kprobes_config.add_event(&self.kprobes_db, Event::Branches)?;
+                    // self.kprobes_config.add_event(&self.kprobes_db, Event::Instructions)?;
+                    // self.kprobes_config.add_event(&self.kprobes_db, Event::BranchMisses)?;
+                }
+                _ => {
+                    return Err(KperfError::PerfCounterBuildError(format!(
+                        "Event type {:?} not implemented yet!",
+                        self.tracked_event
+                    )))
+                }
+            }
+
+            self.kprobes_config.fill_config_variables()?;
+
+            let res = kpc_force_all_ctrs_set(1); // Set config to kernel
+            if res != 0 {
+                return Err(KperfError::PerfCounterBuildError(format!(
+                    "Failed to force_all_ctrs_set, error: {}",
+                    res
+                )));
+            }
+
+            self.kprobes_config.set_kpc_config()?;
+
+            self.kprobes_config.start_kpc_counting()?;
+
+            self.kprobes_config.start_kpc_thread_counting()?;
+            // TODO: What functions are actually usefull?
+        }
+
+        println!(
+            "{}",
+            self.kprobes_config
+        );
+        let counter_idx = self.kprobes_config.get_counter_index();
+
+        Ok(PerfCounter {
+            kprobes_db: self.kprobes_db,
+            kprobes_config: self.kprobes_config,
+            counters_start: [0 as c_ulonglong; KPC_MAX_COUNTERS],
+            counters_end: [0 as c_ulonglong; KPC_MAX_COUNTERS],
+            counter_idx,
+            started: false,
+        })
+    }
+
+    pub fn track_event(mut self, tracked_event: Event) -> Self {
+        self.tracked_event = tracked_event;
+        self
     }
 }
 
+const KPC_MAX_COUNTERS: size_t = 32;
+
 pub struct PerfCounter {
+    kprobes_config: KProbesConfig,
+    kprobes_db: KProbesDatabase,
+    counters_start: [c_ulonglong; KPC_MAX_COUNTERS],
+    counters_end: [c_ulonglong; KPC_MAX_COUNTERS],
+    counter_idx: usize,
+    started: bool,
 }
 
 impl PerfCounter {
-    fn start(&mut self) {
-    }
-
-    fn stop(&mut self) {
-    }
-
-    fn reset(&mut self) {
-    }
-
-    fn read(&mut self) {
-    }
-}
-
-#[derive(Debug)]
-pub enum KperfError {
-    PermissionDenied,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum Event {
-    Cycles,
-    Instructions,
-    Branches,
-    BranchMisses,
-}
-
-pub fn get_event_names(event_type: Event) -> Vec<CString> {
-    match event_type {
-        Event::Cycles => {
-            vec![
-                CString::new("FIXED_CYCLES").unwrap(),             // Apple A7-A15
-                CString::new("CPU_CLK_UNHALTED.THREAD").unwrap(),  // Intel Core 1th-10th
-                CString::new("CPU_CLK_UNHALTED.CORE").unwrap(),    // Intel Yonah, Merom
-            ]
+    pub fn start(&mut self) -> Result<(), ()> {
+        if self.started {
+            return Err(());
         }
-        Event::Instructions => {
-            vec![
-                CString::new("FIXED_INSTRUCTIONS").unwrap(),  // Apple A7-A15
-                CString::new("INST_RETIRED.ANY").unwrap(),    // Intel Yonah, Merom, Core 1th-10th
-            ]
-        }
-        Event::Branches => {
-            vec![
-                CString::new("INST_BRANCH").unwrap(),             // Apple A7-A15
-                CString::new("BR_INST_RETIRED.ALL_BRANCHES").unwrap(),  // Intel Core 1th-10th
-                CString::new("INST_RETIRED.ANY").unwrap(),    // Intel Yonah, Merom
-            ]
-        }
-        Event::BranchMisses => {
-            vec![
-                CString::new("BRANCH_MISPRED_NONSPEC").unwrap(),       // Apple A7-A15, since iOS 15, macOS 12
-                CString::new("BRANCH_MISPREDICT").unwrap(),            // Apple A7-A14
-                CString::new("BR_MISP_RETIRED.ALL_BRANCHES").unwrap(), // Intel Core 2th-10th
-                CString::new("BR_INST_RETIRED.MISPRED").unwrap(),      // Intel Yonah, Merom
-            ]
-        }
-    }
-}
-
-pub fn get_event(event_type: Event, db: &mut kpep_db) -> Option<*mut kpep_event>{
-    let names = get_event_names(event_type);
-    for name in names {
         unsafe {
-            let mut ev: *mut kpep_event = null_mut();
-            if kpep_db_event(db, name.as_ptr(), &mut ev) == 0 {
-                return Some(ev);
+            let res = kpc_get_thread_counters(
+                0,
+                KPC_MAX_COUNTERS as c_uint,
+                self.counters_start.as_mut_ptr(),
+            );
+            if res != 0 {
+                println!("Failed to get thread counters : {}", res);
+                return Err(());
             }
         }
+        self.started = true;
+        return Ok(());
     }
-    return None;
-}
 
-pub fn check_kpc_permission() -> Result<(), KperfError>{
-    let mut force_ctrs: c_int = 0;
-    unsafe {
-        let res = kperf_sys::functions::kpc_force_all_ctrs_get(&mut force_ctrs);
-        if res != 0 {
-            println!("Permission denied, xnu/kpc requires root privileges (error code: {})", res);
-            return Err(KperfError::PermissionDenied)
+    pub fn stop(&mut self) -> Result<(), ()> {
+        if !self.started {
+            return Err(());
         }
+        unsafe {
+            let res = kpc_get_thread_counters(
+                0,
+                KPC_MAX_COUNTERS as c_uint,
+                self.counters_end.as_mut_ptr(),
+            );
+            if res != 0 {
+                println!("Failed to get thread counters : {}", res);
+                return Err(());
+            }
+        }
+        self.started = false;
+        return Ok(());
     }
-    return Ok(())
+
+    pub fn reset(&mut self) {}
+
+    pub fn read(&mut self) -> u64 {
+        return dbg!(self.counters_end)[self.counter_idx] - self.counters_start[self.counter_idx];
+    }
 }
