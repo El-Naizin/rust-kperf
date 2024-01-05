@@ -1,7 +1,6 @@
 pub mod error;
 pub mod event;
 pub mod kperf;
-pub mod safe_wrappers;
 
 use error::KperfError;
 use event::Event;
