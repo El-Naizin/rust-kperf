@@ -44,20 +44,24 @@ impl PerfCounterBuilder {
 
             match self.tracked_event {
                 Event::Cycles => {
-                    self.kprobes_config.add_event(&self.kprobes_db, Event::Cycles)?;
+                    self.kprobes_config
+                        .add_event(&self.kprobes_db, Event::Cycles)?;
                     // self.kprobes_config.add_event(&self.kprobes_db, Event::Branches)?;
                     // self.kprobes_config.add_event(&self.kprobes_db, Event::Instructions)?;
                     // self.kprobes_config.add_event(&self.kprobes_db, Event::BranchMisses)?;
-                },
+                }
                 Event::Branches => {
-                    self.kprobes_config.add_event(&self.kprobes_db, Event::Branches)?;
-                },
+                    self.kprobes_config
+                        .add_event(&self.kprobes_db, Event::Branches)?;
+                }
                 Event::BranchMisses => {
-                    self.kprobes_config.add_event(&self.kprobes_db, Event::BranchMisses)?;
-                },
+                    self.kprobes_config
+                        .add_event(&self.kprobes_db, Event::BranchMisses)?;
+                }
                 Event::Instructions => {
-                    self.kprobes_config.add_event(&self.kprobes_db, Event::Instructions)?;
-                },
+                    self.kprobes_config
+                        .add_event(&self.kprobes_db, Event::Instructions)?;
+                }
                 _ => {
                     return Err(KperfError::PerfCounterBuildError(format!(
                         "Event type {:?} not implemented yet!",
@@ -84,10 +88,7 @@ impl PerfCounterBuilder {
             // TODO: What functions are actually usefull?
         }
 
-        println!(
-            "{}",
-            self.kprobes_config
-        );
+        println!("{}", self.kprobes_config);
         let counter_idx = self.kprobes_config.get_counter_index();
 
         Ok(PerfCounter {

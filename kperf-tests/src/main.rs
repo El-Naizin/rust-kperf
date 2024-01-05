@@ -1,17 +1,16 @@
-use std::time::Instant;
 use kperf_rs;
-use kperf_rs::event::Event;
 use kperf_rs::check_kpc_permission;
+use kperf_rs::event::Event;
+use kperf_rs::kperf::ticks_to_nanoseconds;
 use kperf_rs::PerfCounterBuilder;
 use libc::size_t;
-use kperf_rs::kperf::ticks_to_nanoseconds;
+use std::time::Instant;
 
 const KPC_MAX_COUNTERS: size_t = 32;
 
 fn main() {
     // Check permission
     check_kpc_permission().expect("KPC Permission denied");
-
 
     let iterations = 500000;
     let mut perf_counter = PerfCounterBuilder::new()
@@ -34,7 +33,7 @@ fn main() {
         let a = 4 + i % 5;
         let b = a * 3;
         let c = 4;
-        if a > 3{
+        if a > 3 {
             let d = 1;
         } else {
             let d = 2;
@@ -54,18 +53,19 @@ fn main() {
         counter_result as f64 / iterations as f64
     );
 
-    println!("\
+    println!(
+        "\
     Cycles time           :\t{}\n\
     Cycles time (secs)    :\t{}\n\
     time crate time       :\t{}\n\
     time crate time (secs):\t{}\n\
     Diff                  :\t{}\
     ",
-             ticks_to_nanoseconds(counter_result),
-             (ticks_to_nanoseconds(counter_result)) as f64 / 1_000_000_000.,
-             elapsed_time.as_nanos(),
-             elapsed_time.as_secs_f64(),
-             (ticks_to_nanoseconds(counter_result)) as i64 - elapsed_time.as_nanos() as i64
+        ticks_to_nanoseconds(counter_result),
+        (ticks_to_nanoseconds(counter_result)) as f64 / 1_000_000_000.,
+        elapsed_time.as_nanos(),
+        elapsed_time.as_secs_f64(),
+        (ticks_to_nanoseconds(counter_result)) as i64 - elapsed_time.as_nanos() as i64
     );
 
     println!(

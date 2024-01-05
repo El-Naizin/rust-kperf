@@ -1,17 +1,22 @@
+use crate::error::KpepError::UnknownError;
 use crate::error::{KpepError, KperfError};
-use crate::event::Event;
 use crate::event::get_event;
-use kperf_sys::functions::{kpc_set_config, kpc_set_counting, kpc_set_thread_counting, kpep_config_add_event, kpep_config_create, kpep_config_force_counters, kpep_config_kpc, kpep_config_kpc_classes, kpep_config_kpc_count, kpep_config_kpc_map, kperf_ns_to_ticks, kperf_tick_frequency, kperf_ticks_to_ns};
+use crate::event::Event;
+use crate::KPC_MAX_COUNTERS;
+use kperf_sys::constants::KPC_CLASS_CONFIGURABLE_MASK;
+use kperf_sys::functions::{
+    kpc_set_config, kpc_set_counting, kpc_set_thread_counting, kpep_config_add_event,
+    kpep_config_create, kpep_config_force_counters, kpep_config_kpc, kpep_config_kpc_classes,
+    kpep_config_kpc_count, kpep_config_kpc_map, kperf_ns_to_ticks, kperf_tick_frequency,
+    kperf_ticks_to_ns,
+};
 use kperf_sys::structs::{kpc_config_t, kpep_config, kpep_db};
+use libc::{c_uint, c_ulonglong, size_t};
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
 use std::mem::size_of;
 use std::ptr::{null, null_mut};
-use libc::{c_uint, c_ulonglong, size_t};
-use kperf_sys::constants::KPC_CLASS_CONFIGURABLE_MASK;
-use crate::error::KpepError::UnknownError;
-use crate::KPC_MAX_COUNTERS;
 
 #[derive(Debug)]
 pub struct KProbesConfig {
@@ -36,7 +41,13 @@ impl KProbesConfig {
             }
         }
 
-        return Ok(Self { config, classes: 0, reg_count: 0, counter_map: [0; KPC_MAX_COUNTERS], kpc_registers: [0; KPC_MAX_COUNTERS] });
+        return Ok(Self {
+            config,
+            classes: 0,
+            reg_count: 0,
+            counter_map: [0; KPC_MAX_COUNTERS],
+            kpc_registers: [0; KPC_MAX_COUNTERS],
+        });
     }
 
     pub fn add_event(&mut self, db: &KProbesDatabase, event_type: Event) -> Result<(), KperfError> {
@@ -130,7 +141,10 @@ impl KProbesConfig {
     pub fn start_kpc_thread_counting(&mut self) -> Result<(), KperfError> {
         let res = unsafe { kpc_set_thread_counting(self.classes) };
         if res != 0 {
-            return Err(KperfError::PerfCounterBuildError(format!("Failed to start kpc thread counting, error: {}", res)));
+            return Err(KperfError::PerfCounterBuildError(format!(
+                "Failed to start kpc thread counting, error: {}",
+                res
+            )));
         }
         Ok(())
     }
@@ -150,9 +164,13 @@ impl KProbesConfig {
             return Ok(());
             // return Err(KperfError::PerfCounterBuildError(format!("KProbes Register count is 0")));
         } else if self.reg_count == 0 {
-            return Err(KperfError::PerfCounterBuildError(format!("KPC is configurable but reg_count is 0, probably shouldn't happen")));
+            return Err(KperfError::PerfCounterBuildError(format!(
+                "KPC is configurable but reg_count is 0, probably shouldn't happen"
+            )));
         } else {
-            return Err(KperfError::UnknownError(format!("Should never get to here")));
+            return Err(KperfError::UnknownError(format!(
+                "Should never get to here"
+            )));
         }
     }
 
@@ -219,11 +237,15 @@ pub fn get_tick_frequency() -> u64 {
     unsafe { kperf_tick_frequency() as u64 }
 }
 
-const TICKS_TO_NANOSECONDS_MAGIC_NUMBER: u64 = 100;  // Magic number, don't ask
+const TICKS_TO_NANOSECONDS_MAGIC_NUMBER: u64 = 100; // Magic number, don't ask
 pub fn ticks_to_nanoseconds(cpu_ticks: u64) -> u64 {
-    unsafe { kperf_ticks_to_ns(cpu_ticks as c_ulonglong) as u64 / TICKS_TO_NANOSECONDS_MAGIC_NUMBER }
+    unsafe {
+        kperf_ticks_to_ns(cpu_ticks as c_ulonglong) as u64 / TICKS_TO_NANOSECONDS_MAGIC_NUMBER
+    }
 }
 
 pub fn nanaseconds_to_ticks(nanoseconds: u64) -> u64 {
-    unsafe { kperf_ns_to_ticks(nanoseconds * TICKS_TO_NANOSECONDS_MAGIC_NUMBER as c_ulonglong) as u64 }
+    unsafe {
+        kperf_ns_to_ticks(nanoseconds * TICKS_TO_NANOSECONDS_MAGIC_NUMBER as c_ulonglong) as u64
+    }
 }

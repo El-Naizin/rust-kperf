@@ -1,10 +1,10 @@
+use crate::kperf::KProbesDatabase;
+use kperf_sys::functions::kpep_db_event;
+use kperf_sys::structs::kpep_event;
+use std::ffi::CString;
 use std::fmt;
 use std::fmt::Formatter;
-use kperf_sys::structs::kpep_event;
 use std::ptr::null_mut;
-use kperf_sys::functions::kpep_db_event;
-use std::ffi::CString;
-use crate::kperf::KProbesDatabase;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Event {
