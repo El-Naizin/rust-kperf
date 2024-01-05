@@ -1,14 +1,14 @@
 use crate::error::{KpepError, KperfError};
 use crate::event::Event;
-use crate::safe_wrappers::get_event;
-use kperf_sys::functions::{kpc_set_config, kpc_set_counting, kpc_set_thread_counting, kpep_config_add_event, kpep_config_create, kpep_config_force_counters, kpep_config_kpc, kpep_config_kpc_classes, kpep_config_kpc_count, kpep_config_kpc_map};
+use crate::event::get_event;
+use kperf_sys::functions::{kpc_set_config, kpc_set_counting, kpc_set_thread_counting, kpep_config_add_event, kpep_config_create, kpep_config_force_counters, kpep_config_kpc, kpep_config_kpc_classes, kpep_config_kpc_count, kpep_config_kpc_map, kperf_ns_to_ticks, kperf_tick_frequency, kperf_ticks_to_ns};
 use kperf_sys::structs::{kpc_config_t, kpep_config, kpep_db};
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
 use std::mem::size_of;
 use std::ptr::{null, null_mut};
-use libc::{c_uint, size_t};
+use libc::{c_uint, c_ulonglong, size_t};
 use kperf_sys::constants::KPC_CLASS_CONFIGURABLE_MASK;
 use crate::error::KpepError::UnknownError;
 use crate::KPC_MAX_COUNTERS;
@@ -137,19 +137,20 @@ impl KProbesConfig {
 
     pub fn set_kpc_config(&mut self) -> Result<(), KperfError> {
         if (self.classes & KPC_CLASS_CONFIGURABLE_MASK) != 0 && self.reg_count != 0 {
-            let res = unsafe {kpc_set_config(self.classes, self.kpc_registers.as_mut_ptr())};
+            let res = unsafe { kpc_set_config(self.classes, self.kpc_registers.as_mut_ptr()) };
             if res != 0 {
                 return Err(KperfError::PerfCounterBuildError(format!(
                     "Failed to set kpc config, error: {}",
                     res
                 )));
             }
-            return Ok(())
+            return Ok(());
+        } else if (self.classes & KPC_CLASS_CONFIGURABLE_MASK) == 0 {
+            println!("Warn: classes weren't configurable and register count was 0, should be OK");
+            return Ok(());
+            // return Err(KperfError::PerfCounterBuildError(format!("KProbes Register count is 0")));
         } else if self.reg_count == 0 {
-            return Err(KperfError::PerfCounterBuildError(format!("KProbes Register count is 0")));
-        }
-        else if (self.classes & KPC_CLASS_CONFIGURABLE_MASK) == 0 {
-            return Err(KperfError::PerfCounterBuildError(format!("KPC isn't configurable")));
+            return Err(KperfError::PerfCounterBuildError(format!("KPC is configurable but reg_count is 0, probably shouldn't happen")));
         } else {
             return Err(KperfError::UnknownError(format!("Should never get to here")));
         }
@@ -164,12 +165,12 @@ impl KProbesConfig {
 impl fmt::Display for KProbesConfig {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f,
-            "KProbesConfig:\nclasses: {}\nreg_count: {}\ncounter_map: {:?}\nkpc_registers: {:?}\nkpep_config: {:?}\n",
-                self.classes,
-                self.reg_count,
-                self.counter_map,
-            self.kpc_registers,
-            self.config
+               "KProbesConfig:\nclasses: {}\nreg_count: {}\ncounter_map: {:?}\nkpc_registers: {:?}\nkpep_config: {:?}\n",
+               self.classes,
+               self.reg_count,
+               self.counter_map,
+               self.kpc_registers,
+               self.config
         )
     }
 }
@@ -212,4 +213,17 @@ impl KProbesDatabase {
             }
         }
     }
+}
+
+pub fn get_tick_frequency() -> u64 {
+    unsafe { kperf_tick_frequency() as u64 }
+}
+
+const TICKS_TO_NANOSECONDS_MAGIC_NUMBER: u64 = 100;  // Magic number, don't ask
+pub fn ticks_to_nanoseconds(cpu_ticks: u64) -> u64 {
+    unsafe { kperf_ticks_to_ns(cpu_ticks as c_ulonglong) as u64 / TICKS_TO_NANOSECONDS_MAGIC_NUMBER }
+}
+
+pub fn nanaseconds_to_ticks(nanoseconds: u64) -> u64 {
+    unsafe { kperf_ns_to_ticks(nanoseconds * TICKS_TO_NANOSECONDS_MAGIC_NUMBER as c_ulonglong) as u64 }
 }

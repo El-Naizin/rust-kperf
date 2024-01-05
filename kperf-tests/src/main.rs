@@ -1,8 +1,10 @@
+use std::time::Instant;
 use kperf_rs;
 use kperf_rs::event::Event;
-use kperf_rs::safe_wrappers::check_kpc_permission;
+use kperf_rs::check_kpc_permission;
 use kperf_rs::PerfCounterBuilder;
 use libc::size_t;
+use kperf_rs::kperf::ticks_to_nanoseconds;
 
 const KPC_MAX_COUNTERS: size_t = 32;
 
@@ -10,7 +12,8 @@ fn main() {
     // Check permission
     check_kpc_permission().expect("KPC Permission denied");
 
-    let iterations = 100000;
+
+    let iterations = 500000;
     let mut perf_counter = PerfCounterBuilder::new()
         .track_event(Event::Cycles)
         .build_counter()
@@ -22,27 +25,49 @@ fn main() {
     perf_counter_2
         .start()
         .expect("Failed to start thread counters");
+    let now = Instant::now();
     perf_counter
         .start()
         .expect("Failed to start thread counters");
+
     for i in 0..iterations {
-        let a = 4;
+        let a = 4 + i % 5;
         let b = a * 3;
-        let c = b + 4;
+        let c = 4;
+        if a > 3{
+            let d = 1;
+        } else {
+            let d = 2;
+        }
         format!("{a}, {b}, {c}");
     }
     perf_counter.stop().expect("Failed to stop thread counters");
+    let elapsed_time = now.elapsed();
     perf_counter_2
         .stop()
         .expect("Failed to start thread counters");
     let counter_result = perf_counter.read();
+    let counter_result_2 = perf_counter_2.read();
     println!(
         "perf1: Cycles: {}\nCycles per iteration: {}",
         counter_result,
         counter_result as f64 / iterations as f64
     );
 
-    let counter_result_2 = perf_counter_2.read();
+    println!("\
+    Cycles time           :\t{}\n\
+    Cycles time (secs)    :\t{}\n\
+    time crate time       :\t{}\n\
+    time crate time (secs):\t{}\n\
+    Diff                  :\t{}\
+    ",
+             ticks_to_nanoseconds(counter_result),
+             (ticks_to_nanoseconds(counter_result)) as f64 / 1_000_000_000.,
+             elapsed_time.as_nanos(),
+             elapsed_time.as_secs_f64(),
+             (ticks_to_nanoseconds(counter_result)) as i64 - elapsed_time.as_nanos() as i64
+    );
+
     println!(
         "perf2: Cycles: {}\nCycles per iteration: {}",
         counter_result_2,

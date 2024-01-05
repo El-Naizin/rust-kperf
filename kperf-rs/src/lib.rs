@@ -8,13 +8,9 @@ use event::Event;
 use kperf::KProbesConfig;
 use kperf::KProbesDatabase;
 pub use kperf_sys;
-use kperf_sys::constants::KPC_CLASS_CONFIGURABLE_MASK;
-use kperf_sys::functions::{kpc_force_all_ctrs_set, kpc_get_thread_counters, kpc_set_config, kpc_set_counting, kpc_set_thread_counting, kpep_config_add_event, kpep_config_force_counters, kpep_config_kpc, kpep_config_kpc_classes, kpep_config_kpc_count, kpep_config_kpc_map};
-use kperf_sys::structs::kpc_config_t;
-use libc::{c_uint, c_ulonglong, size_t};
+use kperf_sys::functions::{kpc_force_all_ctrs_set, kpc_get_thread_counters};
+use libc::{c_int, c_uint, c_ulonglong, size_t};
 use std::error::Error;
-use std::mem::size_of;
-use std::ptr::null_mut;
 
 pub enum Track {
     Thread,
@@ -50,10 +46,19 @@ impl PerfCounterBuilder {
             match self.tracked_event {
                 Event::Cycles => {
                     self.kprobes_config.add_event(&self.kprobes_db, Event::Cycles)?;
-                    self.kprobes_config.add_event(&self.kprobes_db, Event::Branches)?;
+                    // self.kprobes_config.add_event(&self.kprobes_db, Event::Branches)?;
                     // self.kprobes_config.add_event(&self.kprobes_db, Event::Instructions)?;
                     // self.kprobes_config.add_event(&self.kprobes_db, Event::BranchMisses)?;
-                }
+                },
+                Event::Branches => {
+                    self.kprobes_config.add_event(&self.kprobes_db, Event::Branches)?;
+                },
+                Event::BranchMisses => {
+                    self.kprobes_config.add_event(&self.kprobes_db, Event::BranchMisses)?;
+                },
+                Event::Instructions => {
+                    self.kprobes_config.add_event(&self.kprobes_db, Event::Instructions)?;
+                },
                 _ => {
                     return Err(KperfError::PerfCounterBuildError(format!(
                         "Event type {:?} not implemented yet!",
@@ -155,6 +160,18 @@ impl PerfCounter {
     pub fn reset(&mut self) {}
 
     pub fn read(&mut self) -> u64 {
-        return dbg!(self.counters_end)[self.counter_idx] - self.counters_start[self.counter_idx];
+        return self.counters_end[self.counter_idx] - self.counters_start[self.counter_idx];
     }
+}
+
+pub fn check_kpc_permission() -> Result<(), KperfError> {
+    let mut force_ctrs: c_int = 0;
+    unsafe {
+        let res = kperf_sys::functions::kpc_force_all_ctrs_get(&mut force_ctrs);
+        if res != 0 {
+            // println!("Permission denied, xnu/kpc requires root privileges (error code: {})", res);
+            return Err(KperfError::PermissionDenied);
+        }
+    }
+    return Ok(());
 }
