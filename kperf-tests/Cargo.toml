@@ -6,6 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-#kperf-sys = { version = "0.0.2", path = "../kperf-sys" }
 kperf-rs = { version = "0.1.0", path = "../kperf-rs"}
 libc = "0.2.150"

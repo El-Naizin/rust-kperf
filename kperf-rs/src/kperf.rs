@@ -7,8 +7,8 @@ use kperf_sys::constants::KPC_CLASS_CONFIGURABLE_MASK;
 use kperf_sys::functions::{
     kpc_set_config, kpc_set_counting, kpc_set_thread_counting, kpep_config_add_event,
     kpep_config_create, kpep_config_force_counters, kpep_config_kpc, kpep_config_kpc_classes,
-    kpep_config_kpc_count, kpep_config_kpc_map, kperf_ns_to_ticks, kperf_tick_frequency,
-    kperf_ticks_to_ns,
+    kpep_config_kpc_count, kpep_config_kpc_map, kperf_ns_to_ticks, kperf_reset,
+    kperf_tick_frequency, kperf_ticks_to_ns,
 };
 use kperf_sys::structs::{kpc_config_t, kpep_config, kpep_db};
 use libc::{c_uint, c_ulonglong, size_t};
@@ -141,8 +141,30 @@ impl KProbesConfig {
     pub fn start_kpc_thread_counting(&mut self) -> Result<(), KperfError> {
         let res = unsafe { kpc_set_thread_counting(self.classes) };
         if res != 0 {
-            return Err(KperfError::PerfCounterBuildError(format!(
+            return Err(KperfError::UnknownError(format!(
                 "Failed to start kpc thread counting, error: {}",
+                res
+            )));
+        }
+        Ok(())
+    }
+
+    pub fn stop_kpc_thread_counting(&mut self) -> Result<(), KperfError> {
+        let res = unsafe { kpc_set_thread_counting(0) };
+        if res != 0 {
+            return Err(KperfError::UnknownError(format!(
+                "Failed to stop kpc thread counting, error: {}",
+                res
+            )));
+        }
+        Ok(())
+    }
+
+    pub fn reset_counters(&mut self) -> Result<(), KperfError> {
+        let res = unsafe { kperf_reset() };
+        if res != 0 {
+            return Err(KperfError::UnknownError(format!(
+                "Failed to reset kpc thread counters, error: {}",
                 res
             )));
         }
@@ -160,7 +182,7 @@ impl KProbesConfig {
             }
             return Ok(());
         } else if (self.classes & KPC_CLASS_CONFIGURABLE_MASK) == 0 {
-            println!("Warn: classes weren't configurable and register count was 0, should be OK");
+            //println!("Warn: classes weren't configurable and register count was 0, should be OK");
             return Ok(());
             // return Err(KperfError::PerfCounterBuildError(format!("KProbes Register count is 0")));
         } else if self.reg_count == 0 {

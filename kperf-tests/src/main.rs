@@ -12,7 +12,7 @@ fn main() {
     // Check permission
     check_kpc_permission().expect("KPC Permission denied");
 
-    let iterations = 500000;
+    let iterations = 5;
     let mut perf_counter = PerfCounterBuilder::new()
         .track_event(Event::Cycles)
         .build_counter()
@@ -25,6 +25,7 @@ fn main() {
         .start()
         .expect("Failed to start thread counters");
     let now = Instant::now();
+    perf_counter.reset().unwrap();
     perf_counter
         .start()
         .expect("Failed to start thread counters");
@@ -39,14 +40,15 @@ fn main() {
             let d = 2;
         }
         format!("{a}, {b}, {c}");
+        perf_counter.reset().unwrap();
     }
     perf_counter.stop().expect("Failed to stop thread counters");
     let elapsed_time = now.elapsed();
     perf_counter_2
         .stop()
         .expect("Failed to start thread counters");
-    let counter_result = perf_counter.read();
-    let counter_result_2 = perf_counter_2.read();
+    let counter_result = perf_counter.read().unwrap();
+    let counter_result_2 = perf_counter_2.read().unwrap();
     println!(
         "perf1: Cycles: {}\nCycles per iteration: {}",
         counter_result,
